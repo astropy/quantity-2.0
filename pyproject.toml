@@ -14,7 +14,10 @@ license = { file = "licenses/LICENSE.rst" }
 authors = [
     { name = "The Astropy Developers", email = "astropy.team@gmail.com" }
 ]
-dependencies = []
+dependencies = [
+  "astropy",
+  "numpy>=2.0",
+]
 dynamic = ["version"]
 
 [project.optional-dependencies]
