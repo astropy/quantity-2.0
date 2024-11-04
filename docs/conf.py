@@ -6,7 +6,7 @@ from typing import Any
 project = "quantity"
 copyright = "2024, Astropy Developers"
 author = "Astropy Developers"
-version = release = importlib.metadata.version("quantity_2_0")
+version = release = importlib.metadata.version("quantity")
 
 extensions = [
     "myst_parser",

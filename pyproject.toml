@@ -57,7 +57,7 @@ Changelog = "https://github.com/astropy/quantity-2.0/releases"
 
 [tool.hatch]
 version.source = "vcs"
-build.hooks.vcs.version-file = "src/quantity_2_0/_version.py"
+build.hooks.vcs.version-file = "src/quantity/_version.py"
 
 [tool.hatch.envs.default]
 features = ["test"]
@@ -66,7 +66,7 @@ scripts.test = "pytest {args}"
 
 [tool.uv]
 dev-dependencies = [
-  "quantity_2_0[test]",
+  "quantity[test]",
 ]
 
 
@@ -84,7 +84,7 @@ testpaths = [
 
 
 [tool.coverage]
-run.source = ["quantity_2_0"]
+run.source = ["quantity"]
 report.exclude_also = [
   '\.\.\.',
   'if typing.TYPE_CHECKING:',
@@ -101,7 +101,7 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [[tool.mypy.overrides]]
-module = "quantity_2_0.*"
+module = "quantity.*"
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
@@ -139,7 +139,7 @@ ignore = [
 ]
 isort.required-imports = ["from __future__ import annotations"]
 # Uncomment if using a _compat.typing backport
-# typing-modules = ["quantity_2_0._compat.typing"]
+# typing-modules = ["quantity._compat.typing"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]
