@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "quantity-2.0"
+name = "quantity"
 authors = [
   { name = "Astropy Developers", email = "astropy@users.noreply.github.com" },
 ]
