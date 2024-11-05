@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import array_api_compat
 import astropy.units as u
 import numpy as np
-from astropy.units.quantity_helper import UFUNC_HELPERS
+from astropy.units.quantity_helper import UFUNC_HELPERS, converters_and_unit
 
 from .api import QuantityArray
 from .utils import has_array_namespace
@@ -23,6 +23,21 @@ if TYPE_CHECKING:
 DIMENSIONLESS = u.dimensionless_unscaled
 
 PYTHON_NUMBER = float | int | complex
+TUPLE_OR_LIST = tuple | list
+
+NORMALIZED_FUNCTION_NAMES = {
+    "absolute": "abs",
+    "arccos": "acos",
+    "arccosh": "acosh",
+    "arcsin": "asin",
+    "arcsinh": "asinh",
+    "arctan": "atan",
+    "arctan2": "atan2",
+    "arctanh": "atanh",
+    "conjugate": "conj",
+    "true_divide": "divide",
+    "power": "pow",
+}
 
 
 def get_value_and_unit(
@@ -247,5 +262,114 @@ class Quantity:
     def __setitem__(self, item, value):
         self.value[item] = value_in_unit(value, self.unit)
 
-    __array_ufunc__ = None
+    def __array_ufunc__(self, function, method, *inputs, **kwargs):
+        # Used for our namespace.
+        if (where := kwargs.get("where")) is not None and isinstance(where, Quantity):
+            return NotImplemented
+
+        converters, unit = converters_and_unit(function, method, *inputs)
+        out = kwargs.get("out")
+        if out is not None:
+            # If pre-allocated output is used, check it is suitable.
+            # This also returns array view, to ensure we don't loop back.
+            kwargs["out"] = self._check_output(
+                out[0] if len(out) == 1 else out, unit, function=function
+            )
+
+        if method == "reduce" and "initial" in kwargs and unit is not None:
+            # Special-case for initial argument for reductions like
+            # np.add.reduce.  This should be converted to the output unit as
+            # well, which is typically the same as the input unit (but can
+            # in principle be different: unitless for np.equal, radian
+            # for np.arctan2, though those are not necessarily useful!)
+            kwargs["initial"] = self._to_own_unit(kwargs["initial"], unit=unit)
+
+        input_values = [get_value_and_unit(in_)[0] for in_ in inputs]
+        if not all(
+            isinstance(v, PYTHON_NUMBER) or has_array_namespace(v) for v in input_values
+        ):
+            return NotImplemented
+        input_values = [
+            v if conv is None else conv(v)
+            for (v, conv) in zip(input_values, converters, strict=True)
+        ]
+        try:
+            xp = self.value.__array_namespace__()
+        except AttributeError:
+            try:
+                xp = array_api_compat.array_namespace(self.value)
+            except TypeError:
+                xp = np
+
+        if xp is np:
+            xp_func = function
+        else:
+            function_name = NORMALIZED_FUNCTION_NAMES.get(n := function.__name__, n)
+            xp_func = getattr(xp, function_name)
+        try:
+            result = getattr(xp_func, method)(*input_values, **kwargs)
+        except Exception:
+            # TODO: JAX supports "at" method if one passes in inplace=False.
+            return NotImplemented
+        return self._result_as_quantity(result, unit)
+
+    @classmethod
+    def _check_output(cls, output, unit, function=None):
+        if isinstance(output, tuple):
+            return tuple(
+                cls._check_output(output_, unit_, function)
+                for output_, unit_ in zip(output, unit, strict=True)
+            )
+
+        if output is None:
+            return None
+
+        if unit is None:
+            if isinstance(output, Quantity):
+                msg = "Cannot store non-quantity output{} in {} instance"
+                raise TypeError(
+                    msg.format(
+                        (
+                            f" from {function.__name__} function"
+                            if function is not None
+                            else ""
+                        ),
+                        type(output),
+                    )
+                )
+            return output
+
+        if not isinstance(output, Quantity):
+            if unit == DIMENSIONLESS:
+                return output
+
+            msg = (
+                "Cannot store output with unit '{}'{} in {} instance. "
+                "Use {} instance instead."
+            )
+            raise u.UnitTypeError(
+                msg.format(
+                    unit,
+                    (
+                        f" from {function.__name__} function"
+                        if function is not None
+                        else ""
+                    ),
+                    type(output),
+                    cls,
+                )
+            )
+        return output.value
+
+    @classmethod
+    def _result_as_quantity(cls, result, unit):
+        if isinstance(result, TUPLE_OR_LIST):
+            # Some np.linalg functions return namedtuple, which is handy to access
+            # elements by name, but cannot be directly initialized with an iterator.
+            result_cls = getattr(result, "_make", result.__class__)
+            return result_cls(cls(r, u) for (r, u) in zip(result, unit, strict=True))
+
+        # If needed, weap the result array as a Quantity with the proper unit.
+        return result if unit is None else cls(result, unit)
+
     __array_function__ = None

@@ -11,17 +11,16 @@ import array_api_strict
 import astropy.units as u
 import numpy as np
 import pytest
-from numpy.testing import assert_array_almost_equal_nulp, assert_array_equal
+from numpy.testing import assert_array_equal
 
 from quantity import Quantity
 
-from .conftest import ARRAY_NAMESPACES, UsingArrayAPIStrict, UsingJAX
-
-
-def assert_quantity_equal(q1, q2, nulp=0):
-    assert q1.unit == q2.unit
-    assert q1.value.__class__ is q2.value.__class__
-    assert_array_almost_equal_nulp(q1.value, q2.value, nulp=nulp)
+from .conftest import (
+    ARRAY_NAMESPACES,
+    UsingArrayAPIStrict,
+    UsingJAX,
+    assert_quantity_equal,
+)
 
 
 class QuantitySetup:
@@ -74,7 +73,11 @@ class QuantityOperationTests(QuantitySetup):
         got = self.q1 * u.s
         exp = Quantity(self.q1.value, u.Unit("m s"))
         assert_quantity_equal(got, exp)
+
+    def test_reverse_multiplication_with_unit(self):
         got = u.s * self.q1
+        if isinstance(got, u.Quantity):
+            pytest.xfail(reason="Astropy unit took over, causing u.Quantity return.")
         # TODO: for array-api-strict, this is not great, since it changes it
         # to a regular array. But the problem really is with astropy unit.
         exp = Quantity(np.float64(1.0) * self.q1.value, u.Unit("m s"))
@@ -100,8 +103,12 @@ class QuantityOperationTests(QuantitySetup):
         got = self.q1 / u.s
         exp = Quantity(self.q1.value, u.Unit("m/s"))
         assert_quantity_equal(got, exp)
+
+    def test_reverse_division_with_unit(self):
         # Divide into a unit.
         got = u.s / self.q1
+        if isinstance(got, u.Quantity):
+            pytest.xfail(reason="Astropy unit took over, causing u.Quantity return.")
         # TODO: for array-api-strict, this is not great, since it changes it
         # to a regular array. But the problem really is with astropy unit.
         exp = Quantity(np.float64(1.0) / self.q1.value, u.Unit("s/m"))
@@ -387,7 +394,14 @@ class TestQuantitySubclassAndMixedArrayTypes(UsingArrayAPIStrict):
         got = q1 - q2
         exp = Quantity(np.asarray(self.a1 - 0.01 * self.a2), self.q1.unit)
         assert_quantity_equal(got, exp)
-        got = a1 - q2
+
+    @pytest.mark.xfail(
+        reason="strict_array_api.subtract behaves differently from __sub__"
+    )
+    def test_array_mix3(self):
+        a1 = np.asarray(self.a1)
+        got = a1 - self.q2
+        exp = self.MyQuantity(np.asarray(self.a1 - 0.01 * self.a2), self.q1.unit)
         assert_quantity_equal(got, exp)
 
     def test_subtract(self):
