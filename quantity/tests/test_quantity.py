@@ -146,6 +146,8 @@ class QuantityMethodTests(QuantityTestSetup):
     def test_setitem(self):
         # Create explicitly to ensure we do not change self.q1.
         q = Quantity(self.xp.asarray(np.arange(10.0).reshape(5, 2)), self.q.unit)
+        if self.NO_SETITEM:
+            pytest.xfail(reason=f"array type {self.xp!r} elements cannot be set")
         q[:2, :] = Quantity(200.0, u.cm)
         assert q.unit is self.q.unit
         assert_array_equal(q.value[:2, :], 2.0)

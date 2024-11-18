@@ -11,6 +11,7 @@ ARRAY_NAMESPACES = []
 
 class ANSTests:
     IMMUTABLE = False  # default
+    NO_SETITEM = False
 
     def __init_subclass__(cls, **kwargs):
         # Add class to namespaces available for testing if the underlying
@@ -60,3 +61,12 @@ class UsingDask(MonkeyPatchUnitConversion, ANSTests):
         import dask.array as da
 
         return array_api_compat.array_namespace(da.array([1.0]))
+
+
+class UsingJAX(MonkeyPatchUnitConversion, ANSTests):
+    IMMUTABLE = True
+    NO_SETITEM = True
+
+    @classproperty(lazy=True)
+    def xp(cls):
+        return __import__("jax").numpy

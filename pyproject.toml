@@ -25,6 +25,7 @@ dynamic = ["version"]
 # Include other array types than numpy/array-api-strict. Mostly for tests.
 all = [
     "dask",
+    "jax",
 ]
 test = [
     "pytest",
