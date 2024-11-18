@@ -5,6 +5,7 @@ import operator
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
+import array_api_compat
 import astropy.units as u
 import numpy as np
 from astropy.units.quantity_helper import UFUNC_HELPERS
@@ -16,6 +17,15 @@ if TYPE_CHECKING:
 DIMENSIONLESS = u.dimensionless_unscaled
 
 PYTHON_NUMBER = float | int | complex
+
+
+def has_array_namespace(arg):
+    try:
+        array_api_compat.array_namespace(arg)
+    except TypeError:
+        return False
+    else:
+        return True
 
 
 def get_value_and_unit(arg, default_unit=None):
@@ -81,22 +91,35 @@ def _make_comp(comp):
 
 
 def _make_deferred(attr):
+    # Use array_api_compat getter if available (size, device), since
+    # some array formats provide inconsistent implementations.
+    attr_getter = getattr(array_api_compat, attr, operator.attrgetter(attr))
+
     def deferred(self):
-        return getattr(self.value, attr)
+        return attr_getter(self.value)
 
     return property(deferred)
 
 
 def _make_same_unit_method(attr):
-    def same_unit(self, *args, **kwargs):
-        return replace(self, value=getattr(self.value, attr)(*args, **kwargs))
+    if array_api_func := getattr(array_api_compat, attr, None):
+
+        def same_unit(self, *args, **kwargs):
+            return replace(self, value=array_api_func(self.value, *args, **kwargs))
+
+    else:
+
+        def same_unit(self, *args, **kwargs):
+            return replace(self, value=getattr(self.value, attr)(*args, **kwargs))
 
     return same_unit
 
 
 def _make_same_unit_attribute(attr):
+    attr_getter = getattr(array_api_compat, attr, operator.attrgetter(attr))
+
     def same_unit(self):
-        return replace(self, value=getattr(self.value, attr))
+        return replace(self, value=attr_getter(self.value))
 
     return property(same_unit)
 
@@ -137,9 +160,7 @@ class Quantity:
         return np
 
     def _operate(self, other, op, units_helper):
-        if not hasattr(other, "__array_namespace__") and not isinstance(
-            other, PYTHON_NUMBER
-        ):
+        if not has_array_namespace(other) and not isinstance(other, PYTHON_NUMBER):
             # HACK: unit should take care of this!
             if not isinstance(other, u.UnitBase):
                 return NotImplemented
@@ -158,7 +179,10 @@ class Quantity:
             self_value = conv0(self_value)
         if conv1 is not None:
             other_value = conv1(other_value)
-        value = getattr(self_value, op)(other_value)
+        try:
+            value = getattr(self_value, op)(other_value)
+        except AttributeError:
+            return NotImplemented
         if value is NotImplemented:
             return NotImplemented
         return replace(self, value=value, unit=unit)

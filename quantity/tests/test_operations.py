@@ -1,5 +1,9 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-"""Test that operations on Quantity properly propagate units."""
+"""Test that operations on Quantity properly propagate units.
+
+Note: tests classes are combined with setups for different array types
+at the very end.  Hence, they do not have the usual Test prefix.
+"""
 
 from __future__ import annotations
 
@@ -12,22 +16,26 @@ from numpy.testing import assert_array_almost_equal_nulp, assert_array_equal
 
 from quantity import Quantity
 
+from .conftest import ARRAY_NAMESPACES
+
 
 def assert_quantity_equal(q1, q2, nulp=0):
     assert q1.unit == q2.unit
+    assert q1.value.__class__ is q2.value.__class__
     assert_array_almost_equal_nulp(q1.value, q2.value, nulp=nulp)
 
 
 class QuantitySetup:
     @classmethod
     def setup_class(cls):
-        cls.a1 = np.arange(1.0, 11.0).reshape(5, 2)
-        cls.a2 = np.array([8.0, 10.0])
+        super().setup_class()
+        cls.a1 = cls.xp.asarray(np.arange(1.0, 11.0).reshape(5, 2))
+        cls.a2 = cls.xp.asarray([8.0, 10.0])
         cls.q1 = Quantity(cls.a1, u.meter)
         cls.q2 = Quantity(cls.a2, u.centimeter)
 
 
-class TestQuantityOperations(QuantitySetup):
+class QuantityOperationTests(QuantitySetup):
     def test_addition(self):
         # Take units from left object, q1
         got = self.q1 + self.q2
@@ -144,7 +152,7 @@ class TestQuantityOperations(QuantitySetup):
         assert_quantity_equal(got, exp)
 
     def test_matmul(self):
-        a = np.eye(3)
+        a = self.xp.eye(3)
         q = Quantity(a, u.m)
         got = q @ a
         exp = Quantity(a, u.m)
@@ -154,7 +162,7 @@ class TestQuantityOperations(QuantitySetup):
         got = q @ q
         exp = Quantity(a, u.m**2)
         assert_quantity_equal(got, exp)
-        a2 = np.array(
+        a2 = self.xp.asarray(
             [[[1., 0., 0.],
               [0., 1., 0.],
               [0., 0., 1.]],
@@ -216,9 +224,6 @@ class TestQuantityOperations(QuantitySetup):
         got = q1 + 1.0
         exp = Quantity(q1.value / 1000.0 + 1.0, u.one)
         assert_quantity_equal(got, exp, nulp=1)
-        # Test integers too.
-        got = q1 + np.ones(self.a2.shape, int)
-        assert_quantity_equal(got, exp, nulp=1)
 
     def test_dimensionless_error(self):
         with pytest.raises(u.UnitsError):
@@ -226,6 +231,18 @@ class TestQuantityOperations(QuantitySetup):
 
         with pytest.raises(u.UnitsError):
             self.q1 - Quantity(self.a1, unit=u.one)
+
+    def test_integer_promotion(self):
+        a1 = self.xp.asarray([1, 2, 3])
+        try:
+            a1 * 0.001
+        except Exception:
+            pytest.xfail(reason="{self.xp!r} does not support int to float promotion.")
+        q1 = Quantity(a1, u.m / u.km)
+        a2 = self.xp.asarray([4, 5, 6])
+        got = q1 + a2
+        exp = Quantity(q1.value / 1000.0 + a2, u.one)
+        assert_quantity_equal(got, exp, nulp=1)
 
     def test_eq_ne(self):
         # equality/ non-equality is straightforward for quantity objects
@@ -244,7 +261,7 @@ class TestQuantityOperations(QuantitySetup):
     def test_not_equal_to_unit(self):
         # This should not work (unlike for astropy Quantity)
         unit = u.cm**3
-        q = Quantity(np.array([1.0]), unit)
+        q = Quantity(self.xp.asarray([1.0]), unit)
         assert q != unit
 
     @pytest.mark.parametrize(
@@ -252,13 +269,13 @@ class TestQuantityOperations(QuantitySetup):
         [(1.0, u.cm), (1.0, u.one), (0.0, u.cm), (0.0, u.one)],
     )
     def test_always_truthy(self, value, unit):
-        q = Quantity(np.array(value), unit)
+        q = Quantity(self.xp.asarray(value), unit)
         assert bool(q)  # default python behaviour when __bool__ is not present.
 
     @pytest.mark.parametrize(("value", "unit"), [(1.23, u.one), (1.1, u.m / u.km)])
     def test_numeric_converters(self, value, unit):
         # float and int should only work for scalar dimensionless quantities.
-        q = Quantity(np.array(value), unit)
+        q = Quantity(self.xp.asarray(value), unit)
         assert float(q) == float(q.unit.to(u.one, q.value))
         assert int(q) == int(q.unit.to(u.one, q.value))
 
@@ -266,33 +283,43 @@ class TestQuantityOperations(QuantitySetup):
             operator.index(q)
 
     def test_numeric_converters_fail_on_non_dimenionless(self):
-        q = Quantity(np.array(1.0), u.m)
+        q = Quantity(self.xp.asarray(1.0), u.m)
         with pytest.raises(TypeError):
             float(q)
         with pytest.raises(TypeError):
             int(q)
 
     def test_numeric_converters_fail_on_non_scalar(self):
-        q = Quantity(np.array([1, 2]), u.m)
+        q = Quantity(self.xp.asarray([1.0, 2.0]), u.m)
         with pytest.raises(TypeError):
             float(q)
         with pytest.raises(TypeError):
             int(q)
 
-    @pytest.mark.parametrize("value", [np.array(1.0), np.arange(10.0)])
+    @pytest.mark.parametrize("value", [[1.0], np.arange(10.0)])
     def test_inplace(self, value):
-        s = Quantity(value.copy(), u.cycle)
+        value = self.xp.asarray(value)
+        s = Quantity(self.xp.asarray(value, copy=True), u.cycle)
         check = s
         s /= 2.0
-        assert check.value is s.value
+        assert check.value is s.value or self.IMMUTABLE
         exp = Quantity(value / 2.0, u.cycle)
         assert_quantity_equal(s, exp)
+        check = s
         s /= u.s
         assert check.value is s.value
         # Choice for making Quantity itself immutable.
         assert check.unit == u.cycle
         assert s.unit == u.cycle / u.s
-        s *= Quantity(2.0, u.s)
+        check = s
+        s *= Quantity(self.xp.asarray(2.0), u.s)
+        assert check.value is s.value or self.IMMUTABLE
         exp = Quantity(value, u.cycle)
-        assert check.value is s.value
         assert_quantity_equal(s, exp)
+
+
+# Create the actual test classes.
+for base_setup in ARRAY_NAMESPACES:
+    for tests in (QuantityOperationTests,):
+        name = f"Test{tests.__name__}{base_setup.__name__}"
+        globals()[name] = type(name, (tests, base_setup), {})
