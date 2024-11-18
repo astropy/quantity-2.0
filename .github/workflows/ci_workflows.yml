@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches:
+    - main
+    tags:
+    - '*'
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
+    with:
+      envs: |
+        - name: Code style checks
+          linux: codestyle
+
+        - name: Code tests with supported array API classes
+          linux: test-alldeps
+
+        # Docs are build directly on readthedocs even for PR.
+        # - name: Documentation build
+        #   os: ubuntu-latest
+        #   toxenv: build_docs
