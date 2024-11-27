@@ -14,14 +14,24 @@ license = { file = "licenses/LICENSE.rst" }
 authors = [
     { name = "The Astropy Developers", email = "astropy.team@gmail.com" }
 ]
-dependencies = []
+dependencies = [
+  "array-api-compat>=1.9.1",
+  "astropy>=7.0",
+  "numpy>=2.0",
+]
 dynamic = ["version"]
 
 [project.optional-dependencies]
+# Include other array types than numpy/array-api-strict. Mostly for tests.
+all = [
+    "dask>=2024.11.2",
+    "jax>=0.4.35",
+]
 test = [
     "pytest",
     "pytest-doctestplus",
-    "pytest-cov"
+    "pytest-cov",
+    "array-api-strict",
 ]
 docs = [
     "sphinx",
@@ -106,8 +116,7 @@ extend-select = [
   "ARG",      # flake8-unused-arguments
   "B",        # flake8-bugbear
   "C4",       # flake8-comprehensions
-  "EM",       # flake8-errmsg
-  "EXE",      # flake8-executable
+  "E",        # errors
   "G",        # flake8-logging-format
   "I",        # isort
   "ICN",      # flake8-import-conventions
