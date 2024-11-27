@@ -15,8 +15,8 @@ authors = [
     { name = "The Astropy Developers", email = "astropy.team@gmail.com" }
 ]
 dependencies = [
-  "array-api-compat",
-  "astropy",
+  "array-api-compat>=1.9.1",
+  "astropy>=7.0",
   "numpy>=2.0",
 ]
 dynamic = ["version"]
@@ -24,8 +24,8 @@ dynamic = ["version"]
 [project.optional-dependencies]
 # Include other array types than numpy/array-api-strict. Mostly for tests.
 all = [
-    "dask",
-    "jax",
+    "dask>=2024.11.2",
+    "jax>=0.4.35",
 ]
 test = [
     "pytest",
