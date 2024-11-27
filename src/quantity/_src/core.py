@@ -1,20 +1,31 @@
+"""Quantity."""
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+
 from __future__ import annotations
 
 import operator
+from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar, Union, cast, overload
 
 import array_api_compat
 import astropy.units as u
 import numpy as np
+from astropy.units import UnitBase as Unit
 from astropy.units.quantity_helper import UFUNC_HELPERS
 
 from .api import QuantityArray
 from .utils import has_array_namespace
 
 if TYPE_CHECKING:
-    from typing import Any
+    from types import NotImplementedType
+    from typing import Any, Self
+
+    from ._array_api import Array
+    from ._quantity_api import ArrayQuantity, Unit
+
+
+T = TypeVar("T")
 
     from .api import Unit
     from .array_api import Array
@@ -33,9 +44,9 @@ def get_value_and_unit(
     )
 
 
-def value_in_unit(value, unit):
+def value_in_unit(value: Array, unit: Unit) -> Array:
     v_value, v_unit = get_value_and_unit(value, default_unit=DIMENSIONLESS)
-    return v_unit.to(unit, v_value)
+    return cast(Array, v_unit.to(unit, v_value))
 
 
 _OP_TO_NP_FUNC = {
@@ -50,7 +61,12 @@ _OP_TO_NP_FUNC = {
 OP_HELPERS = {op: UFUNC_HELPERS[np_func] for op, np_func in _OP_TO_NP_FUNC.items()}
 
 
-def _make_op(fop, mode):
+QuantityOpCallable: TypeAlias = Callable[
+    ["Quantity", Any], Union["Quantity", NotImplementedType]
+]
+
+
+def _make_op(fop: str, mode: str) -> QuantityOpCallable:
     assert mode in "fri"
     op = fop if mode == "f" else "__" + mode + fop[2:]
     helper = OP_HELPERS[fop]
@@ -70,27 +86,29 @@ def _make_op(fop, mode):
     return __op__
 
 
-def _make_ops(op):
-    return tuple(_make_op(op, mode) for mode in "fri")
+def _make_ops(
+    op: str,
+) -> tuple[QuantityOpCallable, QuantityOpCallable, QuantityOpCallable]:
+    return (_make_op(op, "f"), _make_op(op, "r"), _make_op(op, "i"))
 
 
-def _make_comp(comp):
-    def __comp__(self, other):
+def _make_comp(comp: str) -> Callable[[Quantity, Any], Array]:
+    def _comp_(self: Quantity, other: Any) -> Array | NotImplementedType:
         try:
             other = value_in_unit(other, self.unit)
         except Exception:
             return NotImplemented
         return getattr(self.value, comp)(other)
 
-    return __comp__
+    return _comp_
 
 
-def _make_deferred(attr):
+def _make_deferred(attr: str) -> Callable[[Quantity], property]:
     # Use array_api_compat getter if available (size, device), since
     # some array formats provide inconsistent implementations.
     attr_getter = getattr(array_api_compat, attr, operator.attrgetter(attr))
 
-    def deferred(self):
+    def deferred(self: Quantity):
         return attr_getter(self.value)
 
     return property(deferred)
@@ -129,32 +147,61 @@ def _make_defer_dimensionless(attr):
     return defer_dimensionless
 
 
-def _check_pow_args(exp, mod):
-    if mod is not None:
-        return NotImplemented
+# -----------------
 
-    if not isinstance(exp, PYTHON_NUMBER):
+
+@overload
+def _parse_pow_mod(mod: None, /) -> None: ...
+
+
+@overload
+def _parse_pow_mod(mod: object, /) -> NotImplementedType: ...
+
+
+def _parse_pow_mod(mod: T, /) -> T | NotImplementedType:
+    return mod if mod is None else NotImplemented  # type: ignore[redundant-expr]
+
+
+# -----------------
+
+
+@overload
+def _check_pow_exp(exp: Array | PYTHON_NUMBER, /) -> PYTHON_NUMBER: ...
+
+
+@overload
+def _check_pow_exp(exp: object, /) -> NotImplementedType: ...
+
+
+def _check_pow_exp(exp: Any, /) -> PYTHON_NUMBER | NotImplementedType:
+    out: PYTHON_NUMBER
+    if isinstance(exp, PYTHON_NUMBER):
+        out = exp
+    else:
         try:
-            exp = exp.__complex__()
+            out = complex(exp)
         except Exception:
             try:
-                return exp.__float__()
+                return float(exp)
             except Exception:
                 return NotImplemented
 
-    return exp.real if exp.imag == 0 else exp
+    return out.real if out.imag == 0 else out
 
 
 @dataclass(frozen=True, eq=False)
 class Quantity:
-    value: Any
-    unit: u.UnitBase
+    value: Array
+    unit: Unit
 
     def __array_namespace__(self, *, api_version: str | None = None) -> Any:
         # TODO: make our own?
+        del api_version
         return np
 
-    def _operate(self, other, op, units_helper):
+    def _operate(
+        self, other: Any, op: Any, units_helper: Any
+    ) -> Self | NotImplementedType:
         if not has_array_namespace(other) and not isinstance(other, PYTHON_NUMBER):
             # HACK: unit should take care of this!
             if not isinstance(other, u.UnitBase):
@@ -223,9 +270,11 @@ class Quantity:
 
     # TODO: __dlpack__, __dlpack_device__
 
-    def __pow__(self, exp, mod=None):
-        exp = _check_pow_args(exp, mod)
-        if exp is NotImplemented:
+    def __pow__(self, exp: Any, mod: Any = None) -> Self | NotImplementedType:
+        if (mod := _parse_pow_mod(mod)) is NotImplemented:
+            return NotImplemented
+
+        if (exp := _check_pow_exp(exp)) is NotImplemented:
             return NotImplemented
 
         value = self.value.__pow__(exp)
@@ -234,8 +283,10 @@ class Quantity:
         return replace(self, value=value, unit=self.unit**exp)
 
     def __ipow__(self, exp, mod=None):
-        exp = _check_pow_args(exp, mod)
-        if exp is NotImplemented:
+        if (mod := _parse_pow_mod(mod)) is NotImplemented:
+            return NotImplemented
+
+        if (exp := _check_pow_exp(exp)) is NotImplemented:
             return NotImplemented
 
         value = self.value.__ipow__(exp)
@@ -243,8 +294,14 @@ class Quantity:
             return NotImplemented
         return replace(self, value=value, unit=self.unit**exp)
 
-    def __setitem__(self, item, value):
-        self.value[item] = value_in_unit(value, self.unit)
+    def __setitem__(self, item: Any, value: Any) -> None:
+        """Call the setitem method of the array for the value in the unit.
+
+        The Array API does not guarantee mutability of the underlying array,
+        so this method will raise an exception if the array is immutable.
+
+        """
+        self.value[item] = value_in_unit(value, self.unit)  # type: ignore[index]
 
     __array_ufunc__ = None
     __array_function__ = None
