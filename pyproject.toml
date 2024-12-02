@@ -52,7 +52,8 @@ write_to = "quantity/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = [
-  "quantity",
+  "tests",
+  "quantity",  # for doctests
   "docs",
 ]
 norecursedirs = [
