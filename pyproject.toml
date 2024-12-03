@@ -1,10 +1,3 @@
-[build-system]
-requires = [
-  "setuptools>=62.1",
-  "setuptools_scm[toml]>=6.2",
-  "wheel",]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "quantity"
 description = "Add units to any array-api compatible class"
@@ -40,15 +33,23 @@ docs = [
 [project.urls]
 repository = "https://github.com/astropy/quantity-2.0"
 
+[build-system]
+requires = [
+  "setuptools>=62.1",
+  "setuptools_scm[toml]>=6.2",
+  "wheel",]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools]
 zip-safe = false
 include-package-data = true
 
 [tool.setuptools.packages.find]
+where = ["src"]
 exclude = ["quantity._dev*"]
 
 [tool.setuptools_scm]
-write_to = "quantity/_version.py"
+write_to = "src/quantity/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = [
@@ -107,8 +108,8 @@ exclude_lines = [
 [tool.ruff]
 exclude=[  # package template provided files.
     "setup.py",
-    "quantity/version.py",
-    "quantity/_dev/*",
+    "src/quantity/version.py",
+    "src/quantity/_dev/*",
     "docs/conf.py",
 ]
 
