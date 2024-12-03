@@ -205,7 +205,7 @@ class Quantity:
     __lt__ = _make_comp("__lt__")
     __ne__ = _make_comp("__ne__")
 
-    # Atttributes deferred to those of .value
+    # Attributes deferred to those of .value
     dtype = _make_deferred("dtype")
     device = _make_deferred("device")
     ndim = _make_deferred("ndim")
