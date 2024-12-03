@@ -1,8 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """Test the Quantity class Array API compatibility."""
 
-from __future__ import annotations
-
 from quantity import Quantity
 
 DEFER = {"dtype", "device", "ndim", "shape", "size"}

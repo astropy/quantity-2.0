@@ -5,8 +5,6 @@ Note: tests classes are combined with setups for different array types
 at the very end.  Hence, they do not have the usual Test prefix.
 """
 
-from __future__ import annotations
-
 import copy
 
 import array_api_compat

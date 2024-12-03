@@ -1,5 +1,4 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-from __future__ import annotations
 
 import array_api_compat
 import astropy.units as u
