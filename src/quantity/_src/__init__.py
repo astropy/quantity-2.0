@@ -6,8 +6,6 @@ The public API is available in the top-level `quantity` module.
 """
 # Copyright (c) 2024 Astropy Developers. All rights reserved.
 
-from __future__ import annotations
-
 from .core import Quantity
 
 __all__ = ["Quantity"]

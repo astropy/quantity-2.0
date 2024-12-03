@@ -1,7 +1,5 @@
 """Utility functions for the quantity package."""
 
-from __future__ import annotations
-
 import array_api_compat
 
 
