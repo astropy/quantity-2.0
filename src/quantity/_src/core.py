@@ -10,6 +10,8 @@ import astropy.units as u
 import numpy as np
 from astropy.units.quantity_helper import UFUNC_HELPERS
 
+from .utils import has_array_namespace
+
 if TYPE_CHECKING:
     from typing import Any
 
@@ -17,15 +19,6 @@ if TYPE_CHECKING:
 DIMENSIONLESS = u.dimensionless_unscaled
 
 PYTHON_NUMBER = float | int | complex
-
-
-def has_array_namespace(arg):
-    try:
-        array_api_compat.array_namespace(arg)
-    except TypeError:
-        return False
-    else:
-        return True
 
 
 def get_value_and_unit(arg, default_unit=None):
