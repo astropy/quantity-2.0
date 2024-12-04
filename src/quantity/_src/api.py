@@ -50,7 +50,7 @@ class Quantity(Protocol):
 
     @classmethod
     def __subclasshook__(cls: type, c: type) -> bool:
-        """Enable the subclass check for non-dataclass descriptors."""
+        """Enable the subclass check for data descriptors."""
         return (
             hasattr(c, "value") or "value" in getattr(c, "__annotations__", ())
         ) and (hasattr(c, "unit") or "unit" in getattr(c, "__annotations__", ()))
@@ -92,5 +92,5 @@ class QuantityArray(Quantity, Array, Protocol):
 
     @classmethod
     def __subclasshook__(cls: type, c: type) -> bool:
-        """Enable the subclass check for non-dataclass descriptors."""
+        """Enable the subclass check for data descriptors."""
         return Quantity.__subclasscheck__(c) and issubclass(c, Array)
