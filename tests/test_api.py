@@ -2,6 +2,8 @@
 """Test the Quantity class Array API compatibility."""
 
 import astropy.units as u
+import numpy as np
+import pytest
 
 from quantity import Quantity, api
 
@@ -14,42 +16,43 @@ def test_issubclass_api():
     assert issubclass(Quantity, api.QuantityArray)
 
 
+def test_ndarray():
+    """Test that ndarray does not satisfy the Quantity API."""
+    assert not issubclass(np.ndarray, api.Quantity)
+    assert not isinstance(np.array([1, 2, 3]), api.Quantity)
+
+
 def test_astropy_quantity():
+    """Test that astropy.units.Quantity works with the Quantity API."""
     assert issubclass(u.Quantity, api.Quantity)
-    assert issubclass(u.Quantity, api.QuantityArray)
-    aq = u.Quantity(1.0, u.m)
-    assert isinstance(aq, api.Quantity)
-    assert isinstance(aq, api.QuantityArray)
+    assert isinstance(u.Quantity(np.array([1, 2, 3]), u.m), api.Quantity)
 
 
-class IsinstanceAPITests:
+# ------------------------------
+
+
+@pytest.fixture
+def array_and_quantity(request):
+    xp = request.param.xp
+    value = xp.asarray([1.0, 2.0, 3.0])
+    q = Quantity(value, u.m)
+    return value, q
+
+
+@pytest.mark.parametrize("array_and_quantity", ARRAY_NAMESPACES, indirect=True)
+class TestIsinstanceAPI:
     """Check Quantities are properly recognized independent of the array type."""
 
-    # Note: the actual test classes are created at the end
+    def test_issubclass_api(self, array_and_quantity):
+        v, q = array_and_quantity
+        assert not issubclass(type(v), api.Quantity)
+        assert not issubclass(type(v), api.QuantityArray)
+        assert issubclass(type(q), api.Quantity)
+        assert issubclass(type(q), api.QuantityArray)
 
-    @classmethod
-    def setup_class(cls):
-        super().setup_class()
-        cls.a = cls.xp.asarray([1.0, 2.0, 3.0])
-        cls.q = Quantity(cls.a, u.m)
-
-    def test_issubclass_api(self):
-        assert not issubclass(type(self.a), api.Quantity)
-        assert not issubclass(type(self.a), api.QuantityArray)
-        # The two below Duplicate test_issubclass_api above, but OK to have
-        # it more and less explicit.
-        assert issubclass(type(self.q), api.Quantity)
-        assert issubclass(type(self.q), api.QuantityArray)
-
-    def test_isinstance_api(self):
-        assert not isinstance(self.a, api.Quantity)
-        assert not isinstance(self.a, api.QuantityArray)
-        assert isinstance(self.q, api.Quantity)
-        assert isinstance(self.q, api.QuantityArray)
-
-
-# Create the test classes for the different array types.
-for base_setup in ARRAY_NAMESPACES:
-    for tests in (IsinstanceAPITests,):
-        name = f"Test{tests.__name__}{base_setup.__name__}"
-        globals()[name] = type(name, (tests, base_setup), {})
+    def test_isinstance_api(self, array_and_quantity):
+        v, q = array_and_quantity
+        assert not isinstance(v, api.Quantity)
+        assert not isinstance(v, api.QuantityArray)
+        assert isinstance(q, api.Quantity)
+        assert isinstance(q, api.QuantityArray)
