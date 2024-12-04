@@ -31,17 +31,17 @@ def test_astropy_quantity():
 # ------------------------------
 
 
-@pytest.fixture
-def array_and_quantity(request):
-    xp = request.param.xp
-    value = xp.asarray([1.0, 2.0, 3.0])
-    q = Quantity(value, u.m)
-    return value, q
-
-
-@pytest.mark.parametrize("array_and_quantity", ARRAY_NAMESPACES, indirect=True)
 class TestIsinstanceAPI:
     """Check Quantities are properly recognized independent of the array type."""
+
+    @pytest.fixture(scope="class", params=ARRAY_NAMESPACES)
+    def array_and_quantity(self, request):
+        xp = request.param.xp
+        value = xp.asarray([1.0, 2.0, 3.0])
+        q = Quantity(value, u.m)
+        return value, q
+
+    # ====================
 
     def test_issubclass_api(self, array_and_quantity):
         v, q = array_and_quantity
