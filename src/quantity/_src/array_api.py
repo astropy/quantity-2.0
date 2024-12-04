@@ -9,7 +9,7 @@ from __future__ import annotations
 
 __all__ = ["HasArrayNameSpace", "Array"]
 
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 
 class HasArrayNameSpace(Protocol):
@@ -18,6 +18,7 @@ class HasArrayNameSpace(Protocol):
     def __array_namespace__(self) -> Any: ...
 
 
+@runtime_checkable
 class Array(HasArrayNameSpace, Protocol):
     """Minimal definition of the Array API."""
 

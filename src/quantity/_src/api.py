@@ -26,6 +26,20 @@ class Quantity(Protocol):
     --------
     QuantityArray : A Quantity that adheres to the Array API
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import astropy.units as u
+    >>> from quantity import Quantity
+    >>> from quantity import api
+
+    >>> issubclass(Quantity, api.Quantity)
+    True
+
+    >>> q = Quantity(value=np.array([1, 2, 3]), unit=u.m)
+    >>> isinstance(q, api.Quantity)
+    True
+
     """
 
     #: The numerical value of the quantity, adhering to the Array API.
@@ -33,6 +47,13 @@ class Quantity(Protocol):
 
     #: The unit of the quantity.
     unit: Unit
+
+    @classmethod
+    def __subclasshook__(cls: type, c: type) -> bool:
+        """Enable the subclass check for non-dataclass descriptors."""
+        return (
+            hasattr(c, "value") or "value" in getattr(c, "__annotations__", ())
+        ) and (hasattr(c, "unit") or "unit" in getattr(c, "__annotations__", ()))
 
 
 @runtime_checkable
@@ -51,6 +72,25 @@ class QuantityArray(Quantity, Array, Protocol):
     --------
     Quantity : The minimal Quantity API, separate from the Array API
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import astropy.units as u
+    >>> from quantity import Quantity
+    >>> from quantity import api
+
+    >>> issubclass(Quantity, api.QuantityArray)
+    True
+
+    >>> q = Quantity(value=np.array([1, 2, 3]), unit=u.m)
+    >>> isinstance(q, api.QuantityArray)
+    True
+
     """
 
     ...
+
+    @classmethod
+    def __subclasshook__(cls: type, c: type) -> bool:
+        """Enable the subclass check for non-dataclass descriptors."""
+        return Quantity.__subclasscheck__(c) and issubclass(c, Array)
