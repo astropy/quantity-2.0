@@ -141,6 +141,7 @@ ignore = [
   "PLR09",    # Too many <...>
   "PLR2004",  # Magic value used in comparison
   "RET505",   # Unnecessary `else`/`elif` after `return` statement
+  "RUF022",   # `__all__` is not sorted
 ]
 
 [tool.ruff.lint.per-file-ignores]

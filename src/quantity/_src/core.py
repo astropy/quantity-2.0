@@ -10,10 +10,14 @@ import astropy.units as u
 import numpy as np
 from astropy.units.quantity_helper import UFUNC_HELPERS
 
+from .api import QuantityArray
 from .utils import has_array_namespace
 
 if TYPE_CHECKING:
     from typing import Any
+
+    from .api import Unit
+    from .array_api import Array
 
 
 DIMENSIONLESS = u.dimensionless_unscaled
@@ -21,14 +25,12 @@ DIMENSIONLESS = u.dimensionless_unscaled
 PYTHON_NUMBER = float | int | complex
 
 
-def get_value_and_unit(arg, default_unit=None):
-    # HACK: interoperability with astropy Quantity.  Have protocol?
-    try:
-        unit = arg.unit
-    except AttributeError:
-        return arg, default_unit
-    else:
-        return arg.value, unit
+def get_value_and_unit(
+    arg: QuantityArray | Array, default_unit: Unit | None = None
+) -> tuple[Array, Unit]:
+    return (
+        (arg.value, arg.unit) if isinstance(arg, QuantityArray) else (arg, default_unit)
+    )
 
 
 def value_in_unit(value, unit):
