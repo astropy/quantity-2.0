@@ -120,3 +120,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]
 "noxfile.py" = ["T20"]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]

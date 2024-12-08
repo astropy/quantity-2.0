@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import operator
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import array_api_compat
@@ -11,7 +11,7 @@ import numpy as np
 from astropy.units.quantity_helper import UFUNC_HELPERS
 
 from .api import QuantityArray
-from .utils import has_array_namespace
+from .utils import dataclass, field, has_array_namespace
 
 if TYPE_CHECKING:
     from typing import Any
@@ -150,10 +150,14 @@ def _check_pow_args(exp, mod):
     return exp.real if exp.imag == 0 else exp
 
 
+def _value_converter(v: Any, /) -> Array:
+    return v if has_array_namespace(v) else np.asarray(v)
+
+
 @dataclass(frozen=True, eq=False)
 class Quantity:
-    value: Any
-    unit: u.UnitBase
+    value: Array = field(converter=_value_converter)
+    unit: u.UnitBase = field(converter=u.Unit)
 
     def __array_namespace__(self, *, api_version: str | None = None) -> Any:
         # TODO: make our own?
