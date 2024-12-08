@@ -24,6 +24,20 @@ repos:
         args: ["--pytest-test-first"]
       - id: trailing-whitespace
 
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: "v1.10.0"
+    hooks:
+      - id: rst-backticks
+      - id: rst-directive-colons
+      - id: rst-inline-touching-normal
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.29.4
+    hooks:
+      - id: check-dependabot
+      - id: check-github-workflows
+      - id: check-readthedocs
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: "v0.7.3"
     hooks:
@@ -53,18 +67,6 @@ repos:
     hooks:
       - id: mypy
         files: src
-        additional_dependencies:
-          - pytest
-
-  - repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.10.0
-    hooks:
-      - id: rst-directive-colons
-        # Detect mistake of rst directive not ending with double colon.
-      - id: rst-inline-touching-normal
-        # Detect mistake of inline code touching normal text in rst.
-      - id: text-unicode-replacement-char
-        # Forbid files which have a UTF-8 Unicode replacement character.
 
   - repo: https://github.com/codespell-project/codespell
     rev: "v2.3.0"
