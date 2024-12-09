@@ -49,6 +49,7 @@ __all__ = ["version", "version_info"]
 version = {version!r}
 version_tuple = {version_tuple!r}
 '''
+targets.sdist.only-include = ["src", "licenses", "README.rst"]
 
 
 [tool.pytest.ini_options]
