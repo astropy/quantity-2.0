@@ -7,7 +7,6 @@
 import datetime
 
 # -- Project information -----------------------------------------------------
-
 # The full version, including alpha/beta/rc tags
 from quantity import __version__
 
@@ -15,7 +14,7 @@ release = __version__
 
 project = "quantity-2.0"
 author = "The Astropy Developers"
-copyright = f"{datetime.datetime.now().year}, {author}"  # noqa: A001
+copyright = f"{datetime.datetime.now().year}, {author}"
 
 # -- General configuration ---------------------------------------------------
 
@@ -52,7 +51,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # Treat everything in single ` as a Python reference.
-default_role = 'py:obj'
+default_role = "py:obj"
 
 # -- Options for intersphinx extension ---------------------------------------
 

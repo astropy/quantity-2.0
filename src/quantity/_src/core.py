@@ -52,20 +52,25 @@ OP_HELPERS = {op: UFUNC_HELPERS[np_func] for op, np_func in _OP_TO_NP_FUNC.items
 
 def _make_op(fop, mode):
     assert mode in "fri"
-    op = fop if mode == "f" else "__" + mode + fop[2:]
     helper = OP_HELPERS[fop]
-    op_func = getattr(operator, fop)
+    op_func = getattr(operator, fop if mode != "i" else "__i" + fop[2:])
     if mode == "r":
 
+        def wrapped_operator(u1, u2):
+            return op_func(u2, u1)
+
         def wrapped_helper(u1, u2):
-            return helper(op_func, u2, u1)
+            convs, result_unit = helper(op_func, u2, u1)
+            return convs[::-1], result_unit
+
     else:
+        wrapped_operator = op_func
 
         def wrapped_helper(u1, u2):
             return helper(op_func, u1, u2)
 
     def __op__(self, other):
-        return self._operate(other, op, wrapped_helper)
+        return self._operate(other, wrapped_operator, wrapped_helper)
 
     return __op__
 
@@ -154,14 +159,14 @@ class Quantity:
         # TODO: make our own?
         return np
 
-    def _operate(self, other, op, units_helper):
+    def _operate(self, other, op_func, units_helper):
         if not has_array_namespace(other) and not isinstance(other, PYTHON_NUMBER):
             # HACK: unit should take care of this!
             if not isinstance(other, u.UnitBase):
                 return NotImplemented
 
             try:
-                unit = getattr(operator, op)(self.unit, other)
+                unit = op_func(self.unit, other)
             except Exception:
                 return NotImplemented
             else:
@@ -175,10 +180,10 @@ class Quantity:
         if conv1 is not None:
             other_value = conv1(other_value)
         try:
-            value = getattr(self_value, op)(other_value)
-        except AttributeError:
-            return NotImplemented
-        if value is NotImplemented:
+            value = op_func(self_value, other_value)
+        except TypeError:
+            # Deal with the very unlikely case that other is an array type
+            # that knows about Quantity, but cannot handle the array we carry.
             return NotImplemented
         return replace(self, value=value, unit=unit)
 
@@ -228,9 +233,7 @@ class Quantity:
         if exp is NotImplemented:
             return NotImplemented
 
-        value = self.value.__pow__(exp)
-        if value is NotImplemented:
-            return NotImplemented
+        value = operator.__pow__(self.value, exp)
         return replace(self, value=value, unit=self.unit**exp)
 
     def __ipow__(self, exp, mod=None):
@@ -238,9 +241,7 @@ class Quantity:
         if exp is NotImplemented:
             return NotImplemented
 
-        value = self.value.__ipow__(exp)
-        if value is NotImplemented:
-            return NotImplemented
+        value = operator.__ipow__(self.value, exp)
         return replace(self, value=value, unit=self.unit**exp)
 
     def __setitem__(self, item, value):
