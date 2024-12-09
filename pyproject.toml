@@ -51,7 +51,6 @@ version_tuple = {version_tuple!r}
 '''
 targets.sdist.only-include = ["src", "licenses", "README.rst"]
 
-
 [tool.pytest.ini_options]
 testpaths = [
   "tests",
@@ -61,7 +60,6 @@ testpaths = [
 norecursedirs = [
     "docs[\\/]_build",
     "docs[\\/]generated",
-    "quantity[\\/]_dev",
 ]
 doctest_plus = "enabled"
 text_file_format = "rst"
@@ -108,9 +106,6 @@ exclude_lines = [
 
 [tool.ruff]
 exclude=[  # package template provided files.
-    "setup.py",
-    "src/quantity/version.py",
-    "src/quantity/_dev/*",
     "docs/conf.py",
 ]
 
