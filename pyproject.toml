@@ -104,11 +104,6 @@ exclude_lines = [
   "@overload",
 ]
 
-[tool.ruff]
-exclude=[  # package template provided files.
-    "docs/conf.py",
-]
-
 [tool.ruff.lint]
 extend-select = [
   "ARG",      # flake8-unused-arguments
