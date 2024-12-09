@@ -78,7 +78,13 @@ def _process_dataclass(cls: type[_CT], **kwargs: Any) -> type[_CT]:
 
     # Ensure that the __init__ method does conversion
     @functools.wraps(dcls.__init__)  # give it the same signature
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, _skip_convert: bool = False, **kwargs: Any) -> None:
+        # Fast path: no conversion
+        if _skip_convert:
+            self.__init__.__wrapped__(self, *args, **kwargs)
+            return
+
+        # Bind the arguments to the signature
         ba = self.__init__._obj_signature_.bind_partial(*args, **kwargs)
         ba.apply_defaults()  # so eligible for conversion
 
