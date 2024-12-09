@@ -7,6 +7,7 @@ at the very end.  Hence, they do not have the usual Test prefix.
 
 import operator
 
+import array_api_strict
 import astropy.units as u
 import numpy as np
 import pytest
@@ -14,7 +15,7 @@ from numpy.testing import assert_array_almost_equal_nulp, assert_array_equal
 
 from quantity import Quantity
 
-from .conftest import ARRAY_NAMESPACES
+from .conftest import ARRAY_NAMESPACES, UsingArrayAPIStrict, UsingJAX
 
 
 def assert_quantity_equal(q1, q2, nulp=0):
@@ -74,6 +75,9 @@ class QuantityOperationTests(QuantitySetup):
         exp = Quantity(self.q1.value, u.Unit("m s"))
         assert_quantity_equal(got, exp)
         got = u.s * self.q1
+        # TODO: for array-api-strict, this is not great, since it changes it
+        # to a regular array. But the problem really is with astropy unit.
+        exp = Quantity(np.float64(1.0) * self.q1.value, u.Unit("m s"))
         assert_quantity_equal(got, exp)
 
     def test_division(self):
@@ -98,7 +102,9 @@ class QuantityOperationTests(QuantitySetup):
         assert_quantity_equal(got, exp)
         # Divide into a unit.
         got = u.s / self.q1
-        exp = Quantity(1 / self.q1.value, u.Unit("s/m"))
+        # TODO: for array-api-strict, this is not great, since it changes it
+        # to a regular array. But the problem really is with astropy unit.
+        exp = Quantity(np.float64(1.0) / self.q1.value, u.Unit("s/m"))
         assert_quantity_equal(got, exp)
 
     def test_floor_division(self):
@@ -212,6 +218,13 @@ class QuantityOperationTests(QuantitySetup):
         with pytest.raises(TypeError):
             self.q1 * u.mag(u.Jy)
 
+        with pytest.raises(TypeError):
+            self.q1**u.m
+
+    def test_pow_mod_not_supported(self):
+        with pytest.raises(TypeError):
+            pow(self.q1, 2, 1.0)
+
     def test_dimensionless_operations(self):
         q1 = Quantity(self.a1, u.m / u.km)
         q2 = Quantity(self.a2, u.mm / u.km)
@@ -315,9 +328,95 @@ class QuantityOperationTests(QuantitySetup):
         exp = Quantity(value, u.cycle)
         assert_quantity_equal(s, exp)
 
+    def test_inplace_pow(self):
+        value = self.xp.asarray([2.0])
+        s = Quantity(self.xp.asarray(value, copy=True), u.cycle)
+        check = s
+        s **= 2.0
+        assert check.value is s.value or self.IMMUTABLE
+        exp = Quantity(value**2.0, u.cycle**2)
+        assert_quantity_equal(s, exp)
+
+        with pytest.raises(TypeError):
+            s **= u.m
+
 
 # Create the actual test classes.
 for base_setup in ARRAY_NAMESPACES:
     for tests in (QuantityOperationTests,):
         name = f"Test{tests.__name__}{base_setup.__name__}"
         globals()[name] = type(name, (tests, base_setup), {})
+
+
+class TestQuantitySubclassAndMixedArrayTypes(UsingArrayAPIStrict):
+    """Subclass should take precedence, so execute reverse operations.
+
+    Also use fact that array_api_strict does not recognize numpy arrays,
+    while the other way around works.
+    """
+
+    def setup_class(cls):
+        super().setup_class()
+
+        class MyQuantity(Quantity):
+            def __rsub__(self, other):  # Override to get precedence.
+                return super().__rsub__(other)
+
+        cls.MyQuantity = MyQuantity
+        cls.a1 = cls.xp.asarray(np.arange(1.0, 11.0).reshape(5, 2))
+        cls.a2 = cls.xp.asarray([8.0, 10.0])
+        cls.q1 = Quantity(cls.a1, u.one)
+        cls.q2 = Quantity(cls.a2, u.percent)
+        cls.mq2 = MyQuantity(cls.a2, u.percent)
+
+    def test_array_mix1(self):
+        # Use ndarray for second regular Quantity
+        a2 = np.asarray(self.a2)
+        q2 = Quantity(a2, u.percent)
+        got = self.q1 - q2
+        exp = Quantity(np.asarray(self.a1 - 0.01 * self.a2), self.q1.unit)
+        assert_quantity_equal(got, exp)
+        got = self.a1 - q2
+        assert_quantity_equal(got, exp)
+
+    def test_array_mix2(self):
+        # Use ndarray for first Quantity and make second regular Quantity.
+        a1 = np.asarray(self.a1)
+        q1 = Quantity(a1, u.one)
+        q2 = Quantity(self.a2, u.percent)
+        got = q1 - q2
+        exp = Quantity(np.asarray(self.a1 - 0.01 * self.a2), self.q1.unit)
+        assert_quantity_equal(got, exp)
+        got = a1 - q2
+        assert_quantity_equal(got, exp)
+
+    def test_subtract(self):
+        got = self.q1 - self.mq2
+        assert isinstance(got, self.MyQuantity)
+        exp = self.MyQuantity(self.a1 - 0.01 * self.a2, self.q1.unit)
+        assert_quantity_equal(got, exp)
+
+    def test_subtract_mix(self):
+        # Give q2 precedence, but ensure its contents returns NotImplemented;
+        # this partially to cover all paths in Quantity._operate.
+        a1 = np.asarray(self.a1)
+        q1 = Quantity(a1, u.one)
+        assert self.a2.__rsub__(a1) is NotImplemented
+        got = q1 - self.mq2
+        assert isinstance(got, Quantity)
+        exp = Quantity(np.asarray(self.a1 - 0.01 * self.a2), self.q1.unit)
+        assert_quantity_equal(got, exp)
+
+
+class TestIncompatibleArrays(UsingJAX):
+    """Test propagation and cover an unlikely branch in Quantity._operate."""
+
+    def test_incompatible_arrays(self):
+        a1 = self.xp.asarray(1.0)
+        a2 = array_api_strict.asarray(1.0)
+        with pytest.raises(TypeError):  # Sanity check
+            a1 + a2
+        q1 = Quantity(a1, u.m)
+        q2 = Quantity(a2, u.cm)
+        with pytest.raises(TypeError):
+            q1 + q2

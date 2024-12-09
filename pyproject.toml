@@ -65,24 +65,6 @@ doctest_plus = "enabled"
 text_file_format = "rst"
 addopts = "--doctest-rst"
 
-[tool.coverage.run]
-omit = [
- "quantity/__init*",
- "quantity/conftest.py",
- "quantity/*setup_package*",
- "quantity/tests/*",
- "quantity/*/tests/*",
- "quantity/extern/*",
- "quantity/version*",
- "*/quantity/__init*",
- "*/quantity/conftest.py",
- "*/quantity/*setup_package*",
- "*/quantity/tests/*",
- "*/quantity/*/tests/*",
- "*/quantity/extern/*",
- "*/quantity/version*",
-]
-
 [tool.coverage.report]
 exclude_lines = [
   # Have to re-enable the standard pragma
