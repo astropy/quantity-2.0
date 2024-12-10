@@ -286,7 +286,8 @@ class Quantity:
 
         input_values = [get_value_and_unit(in_)[0] for in_ in inputs]
         if not all(
-            isinstance(v, PYTHON_NUMBER) or has_array_namespace(v) for v in input_values
+            isinstance(v, PYTHON_NUMBER) or has_array_namespace(v)
+            for v in (input_values[:-1] if method == "reduceat" else input_values)
         ):
             return NotImplemented
         input_values = [
