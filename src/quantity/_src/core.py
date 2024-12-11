@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import operator
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import array_api_compat
@@ -11,7 +11,7 @@ import numpy as np
 from astropy.units.quantity_helper import UFUNC_HELPERS
 
 from .api import QuantityArray
-from .utils import has_array_namespace
+from .utils import dataclass, field, has_array_namespace
 
 if TYPE_CHECKING:
     from typing import Any
@@ -105,12 +105,20 @@ def _make_same_unit_method(attr):
     if array_api_func := getattr(array_api_compat, attr, None):
 
         def same_unit(self, *args, **kwargs):
-            return replace(self, value=array_api_func(self.value, *args, **kwargs))
+            return replace(
+                self,
+                value=array_api_func(self.value, *args, **kwargs),
+                _skip_convert=True,
+            )
 
     else:
 
         def same_unit(self, *args, **kwargs):
-            return replace(self, value=getattr(self.value, attr)(*args, **kwargs))
+            return replace(
+                self,
+                value=getattr(self.value, attr)(*args, **kwargs),
+                _skip_convert=True,
+            )
 
     return same_unit
 
@@ -119,7 +127,7 @@ def _make_same_unit_attribute(attr):
     attr_getter = getattr(array_api_compat, attr, operator.attrgetter(attr))
 
     def same_unit(self):
-        return replace(self, value=attr_getter(self.value))
+        return replace(self, value=attr_getter(self.value), _skip_convert=True)
 
     return property(same_unit)
 
@@ -150,10 +158,14 @@ def _check_pow_args(exp, mod):
     return exp.real if exp.imag == 0 else exp
 
 
+def _value_converter(v: Any, /) -> Array:
+    return v if has_array_namespace(v) else np.asarray(v)
+
+
 @dataclass(frozen=True, eq=False)
 class Quantity:
-    value: Any
-    unit: u.UnitBase
+    value: Array = field(converter=_value_converter)
+    unit: u.UnitBase = field(converter=u.Unit)
 
     def __array_namespace__(self, *, api_version: str | None = None) -> Any:
         # TODO: make our own?
@@ -170,7 +182,7 @@ class Quantity:
             except Exception:
                 return NotImplemented
             else:
-                return replace(self, unit=unit)
+                return replace(self, unit=unit, _skip_convert=True)
 
         other_value, other_unit = get_value_and_unit(other)
         self_value = self.value
@@ -185,7 +197,7 @@ class Quantity:
             # Deal with the very unlikely case that other is an array type
             # that knows about Quantity, but cannot handle the array we carry.
             return NotImplemented
-        return replace(self, value=value, unit=unit)
+        return replace(self, value=value, unit=unit, _skip_convert=True)
 
     # Operators (skipping ones that make no sense, like __and__);
     # __pow__ and __rpow__ need special treatment and are defined below.
@@ -234,7 +246,7 @@ class Quantity:
             return NotImplemented
 
         value = operator.__pow__(self.value, exp)
-        return replace(self, value=value, unit=self.unit**exp)
+        return replace(self, value=value, unit=self.unit**exp, _skip_convert=True)
 
     def __ipow__(self, exp, mod=None):
         exp = _check_pow_args(exp, mod)
@@ -242,7 +254,7 @@ class Quantity:
             return NotImplemented
 
         value = operator.__ipow__(self.value, exp)
-        return replace(self, value=value, unit=self.unit**exp)
+        return replace(self, value=value, unit=self.unit**exp, _skip_convert=True)
 
     def __setitem__(self, item, value):
         self.value[item] = value_in_unit(value, self.unit)
