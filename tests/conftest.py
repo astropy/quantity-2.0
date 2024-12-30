@@ -4,6 +4,7 @@ import array_api_compat
 import astropy.units as u
 import numpy as np
 from astropy.utils.decorators import classproperty
+from numpy.testing import assert_array_almost_equal_nulp, assert_array_equal
 
 ARRAY_NAMESPACES = []
 
@@ -11,6 +12,7 @@ ARRAY_NAMESPACES = []
 class ANSTests:
     IMMUTABLE = False  # default
     NO_SETITEM = False
+    NO_OUTPUTS = False
 
     def __init_subclass__(cls, **kwargs):
         # Add class to namespaces available for testing if the underlying
@@ -47,6 +49,8 @@ class MonkeyPatchUnitConversion:
 
 
 class UsingArrayAPIStrict(MonkeyPatchUnitConversion, ANSTests):
+    NO_OUTPUTS = True
+
     @classproperty(lazy=True)
     def xp(cls):
         return __import__("array_api_strict")
@@ -65,7 +69,33 @@ class UsingDask(MonkeyPatchUnitConversion, ANSTests):
 class UsingJAX(MonkeyPatchUnitConversion, ANSTests):
     IMMUTABLE = True
     NO_SETITEM = True
+    NO_OUTPUTS = True
 
     @classproperty(lazy=True)
     def xp(cls):
         return __import__("jax").numpy
+
+
+def assert_quantity_equal(q1, q2, nulp=0):
+    assert q1.unit == q2.unit
+    assert q1.value.__class__ is q2.value.__class__
+    if nulp:
+        assert_array_almost_equal_nulp(q1.value, q2.value, nulp=nulp)
+    else:
+        assert_array_equal(q1.value, q2.value)
+
+
+class TrackingNameSpace:
+    """Intermediate namespace that tracks attributes that were used.
+
+    Used to check whether we test complete sets of functions in the Array API.
+    """
+
+    def __init__(self, ns):
+        self.ns = ns
+        self.used_attrs = set()
+
+    def __getattr__(self, attr):
+        if not attr.startswith("_"):
+            self.used_attrs.add(attr)
+        return getattr(self.ns, attr)
